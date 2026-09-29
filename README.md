@@ -109,6 +109,56 @@ In Hermes, navigate to any site — `stealth_features` should show `["cdp_overri
 | Still blocked | Clear site cookies in dev profile, retry |
 | CDP connection refused | Check firewall, ensure port 9222 is not blocked |
 
+## Production Module (Python)
+
+For advanced use cases, a production-grade Python module is included:
+
+```
+cdp_orchestrator/
+├── __init__.py          # Package exports
+├── browser_spawner.py   # Auto-detect, launch, verify CDP
+├── healthcheck.py       # Background heartbeat monitor
+└── reconnect.py         # Failover state machine with backoff
+```
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-Spawn** | Detects Chrome path, launches with CDP flags, polls until ready |
+| **Profile Lock Handling** | Detects and removes stale SingletonLock files |
+| **Healthcheck** | Background heartbeat every 4s, emits disconnect events |
+| **Auto-Reconnect** | Exponential backoff + jitter, max 5 attempts, graceful abort |
+| **Zero Hanging** | All async tasks support graceful cancellation via asyncio.Event |
+
+### Quick Start
+
+```bash
+pip install -r requirements.txt
+python -m cdp_orchestrator.reconnect
+```
+
+### Library Usage
+
+```python
+import asyncio
+from cdp_orchestrator import ReconnectManager
+
+async def main():
+    manager = ReconnectManager(
+        max_attempts=5,
+        initial_delay=1.0,
+        max_delay=10.0,
+        on_reconnected=lambda s: print(f"Reconnected: {s}"),
+    )
+    session = await manager.start()
+    print(f"Browser: {session['Browser']}")
+    # ... do work ...
+    await manager.stop()
+
+asyncio.run(main())
+```
+
 ## License
 
 MIT

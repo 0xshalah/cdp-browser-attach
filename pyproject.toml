@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "cdp-browser-attach"
+version = "1.0.0"
+description = "Production-grade CDP browser orchestrator with auto-spawn, healthcheck, and reconnect"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "0xshalah"}]
+keywords = ["cdp", "chrome", "browser", "automation", "hermes", "agent"]
+dependencies = [
+    "aiohttp>=3.9.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+cdp-orchestrator = "cdp_orchestrator.reconnect:main"
+
+[tool.setuptools.packages.find]
+include = ["cdp_orchestrator*"]
