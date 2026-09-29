@@ -1,12 +1,20 @@
 """CDP Browser Orchestrator — Production-grade CDP connection handling."""
 
-from .browser_spawner import ensure_browser_running, BrowserLaunchError
+from .stealth_launcher import StealthLauncher, BrowserSpawnError
+from .process_supervisor import (
+    ProcessSupervisor,
+    SupervisorState,
+    CDPReconnectFailedError,
+)
 from .healthcheck import HealthMonitor, ConnectionState
 from .reconnect import ReconnectManager, ReconnectState, BrowserUnrecoverableError
 
 __all__ = [
-    "ensure_browser_running",
-    "BrowserLaunchError",
+    "StealthLauncher",
+    "BrowserSpawnError",
+    "ProcessSupervisor",
+    "SupervisorState",
+    "CDPReconnectFailedError",
     "HealthMonitor",
     "ConnectionState",
     "ReconnectManager",
@@ -14,4 +22,4 @@ __all__ = [
     "BrowserUnrecoverableError",
 ]
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

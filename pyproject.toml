@@ -21,6 +21,7 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.scripts]
 cdp-orchestrator = "cdp_orchestrator.reconnect:main"
+cdp-attach = "cdp_orchestrator.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["cdp_orchestrator*"]
