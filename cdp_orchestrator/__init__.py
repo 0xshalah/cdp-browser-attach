@@ -16,6 +16,9 @@ from .tab_manager import TabManager
 from .form_filler import FormFiller
 from .network_monitor import NetworkMonitor
 from .inbox_poller import InboxPoller, EmailMessage
+from .turnstile_handler import TurnstileHandler
+from .dom_observer import DOMObserver
+from .form_submitter import FormSubmitter, SubmissionResult, FormError, NetworkCapture
 
 __all__ = [
     "StealthLauncher",
@@ -40,6 +43,12 @@ __all__ = [
     "NetworkMonitor",
     "InboxPoller",
     "EmailMessage",
+    "TurnstileHandler",
+    "DOMObserver",
+    "FormSubmitter",
+    "SubmissionResult",
+    "FormError",
+    "NetworkCapture",
 ]
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
