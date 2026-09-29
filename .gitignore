@@ -1,0 +1,11 @@
+# Chrome dev profile
+chrome-dev-profile/
+chrome-profile/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
