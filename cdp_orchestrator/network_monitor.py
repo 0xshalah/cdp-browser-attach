@@ -21,7 +21,7 @@ class NetworkMonitor:
         self._session: Optional[aiohttp.ClientSession] = None
         self._msg_id = 0
         self._responses: Dict[str, Dict[str, Any]] = {}
-        self._response_events: Dict[str, asyncio.Event] = {}
+        self._pending_commands: Dict[int, asyncio.Future] = {}
         self._listen_task: Optional[asyncio.Task] = None
 
     async def connect(self) -> None:
@@ -47,63 +47,86 @@ class NetworkMonitor:
                 raise RuntimeError("No page targets found")
 
     async def _send(self, method: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+        """Send CDP command and wait for matching response."""
         if not self._ws:
             raise RuntimeError("Not connected")
         self._msg_id += 1
         msg_id = self._msg_id
+
+        # Create future for this command
+        future: asyncio.Future = asyncio.get_event_loop().create_future()
+        self._pending_commands[msg_id] = future
+
         await self._ws.send_json({"id": msg_id, "method": method, "params": params or {}})
-        async for msg in self._ws:
-            data = msg.json()
-            if data.get("id") == msg_id:
-                if "error" in data:
-                    raise RuntimeError(f"CDP error: {data['error']}")
-                return data.get("result", {})
-        raise RuntimeError("WebSocket closed")
+
+        try:
+            result = await future
+            if "error" in result:
+                raise RuntimeError(f"CDP error: {result['error']}")
+            return result.get("result", {})
+        finally:
+            self._pending_commands.pop(msg_id, None)
 
     async def _listen_loop(self) -> None:
-        """Background listener for network events."""
+        """Single WebSocket listener — dispatches to commands and events."""
         try:
             async for msg in self._ws:
                 data = msg.json()
+                msg_id = data.get("id")
+
+                # Command response
+                if msg_id is not None and msg_id in self._pending_commands:
+                    future = self._pending_commands[msg_id]
+                    if not future.done():
+                        future.set_result(data)
+                    continue
+
+                # Event
                 method = data.get("method", "")
                 params = data.get("params", {})
 
                 if method == "Network.responseReceived":
-                    request_id = params.get("requestId")
-                    response = params.get("response", {})
-                    url = response.get("url", "")
-                    self._responses[request_id] = {
-                        "url": url,
-                        "status": response.get("status"),
-                        "headers": response.get("headers", {}),
-                        "body": None,
-                    }
-
+                    self._handle_response_received(params)
                 elif method == "Network.loadingFinished":
-                    request_id = params.get("requestId")
-                    if request_id in self._responses:
-                        try:
-                            body_result = await self._send(
-                                "Network.getResponseBody",
-                                {"requestId": request_id},
-                            )
-                            body = body_result.get("body", "")
-                            if body_result.get("base64Encoded"):
-                                import base64
-                                body = base64.b64decode(body).decode("utf-8", errors="replace")
-                            self._responses[request_id]["body"] = body
-                        except Exception as e:
-                            logger.warning(f"Failed to get body for {request_id}: {e}")
-
-                        # Notify waiters
-                        event = self._response_events.get(request_id)
-                        if event:
-                            event.set()
+                    await self._handle_loading_finished(params)
 
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error(f"Network listener error: {e}")
+
+    def _handle_response_received(self, params: Dict) -> None:
+        request_id = params.get("requestId")
+        response = params.get("response", {})
+        url = response.get("url", "")
+        self._responses[request_id] = {
+            "url": url,
+            "status": response.get("status"),
+            "headers": response.get("headers", {}),
+            "body": None,
+        }
+
+    async def _handle_loading_finished(self, params: Dict) -> None:
+        request_id = params.get("requestId")
+        if request_id not in self._responses:
+            return
+        # Spawn as separate task to avoid deadlock with _listen_loop
+        asyncio.create_task(self._fetch_body(request_id))
+
+    async def _fetch_body(self, request_id: str) -> None:
+        """Fetch response body in a separate task (avoids listener deadlock)."""
+        try:
+            body_result = await self._send(
+                "Network.getResponseBody",
+                {"requestId": request_id},
+            )
+            body = body_result.get("body", "")
+            if body_result.get("base64Encoded"):
+                import base64
+                body = base64.b64decode(body).decode("utf-8", errors="replace")
+            self._responses[request_id]["body"] = body
+        except Exception as e:
+            logger.warning(f"Failed to get body for {request_id}: {e}")
 
     async def wait_for_response(
         self,
@@ -155,6 +178,11 @@ class NetworkMonitor:
                 await self._listen_task
             except asyncio.CancelledError:
                 pass
+        # Cancel all pending commands
+        for future in self._pending_commands.values():
+            if not future.done():
+                future.cancel()
+        self._pending_commands.clear()
         if self._ws:
             await self._ws.close()
         if self._session:
