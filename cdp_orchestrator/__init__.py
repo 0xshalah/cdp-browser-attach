@@ -12,6 +12,10 @@ from .network_interceptor import NetworkInterceptor, InterceptorConfig, NetworkR
 from .runtime_evaluator import RuntimeEvaluator
 from .session_bridge import SessionBridge
 from .api_sniffer import APISniffer, SniffedAPI
+from .tab_manager import TabManager
+from .form_filler import FormFiller
+from .network_monitor import NetworkMonitor
+from .inbox_poller import InboxPoller, EmailMessage
 
 __all__ = [
     "StealthLauncher",
@@ -31,6 +35,11 @@ __all__ = [
     "SessionBridge",
     "APISniffer",
     "SniffedAPI",
+    "TabManager",
+    "FormFiller",
+    "NetworkMonitor",
+    "InboxPoller",
+    "EmailMessage",
 ]
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
